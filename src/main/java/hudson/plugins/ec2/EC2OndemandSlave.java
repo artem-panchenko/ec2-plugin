@@ -47,7 +47,7 @@ public final class EC2OndemandSlave extends EC2AbstractSlave {
             throws FormException, IOException {
 
         super(name, instanceId, description, remoteFS, numExecutors, mode, labelString, amiType.isWindows() ? new EC2WindowsLauncher()
-                : new EC2UnixLauncher(), new EC2RetentionStrategy(idleTerminationMinutes), initScript, tmpDir, nodeProperties, remoteAdmin, jvmopts, stopOnTerminate, idleTerminationMinutes, tags, cloudName, usePrivateDnsName, useDedicatedTenancy, launchTimeout, amiType);
+                : new EC2UnixLauncher(), new RetentionStrategyDeterminer().determineRetentionStrategy(idleTerminationMinutes), initScript, tmpDir, nodeProperties, remoteAdmin, jvmopts, stopOnTerminate, idleTerminationMinutes, tags, cloudName, usePrivateDnsName, useDedicatedTenancy, launchTimeout, amiType);
 
         this.publicDNS = publicDNS;
         this.privateDNS = privateDNS;

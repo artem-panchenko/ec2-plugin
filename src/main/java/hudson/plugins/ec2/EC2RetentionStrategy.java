@@ -47,8 +47,8 @@ public class EC2RetentionStrategy extends RetentionStrategy<EC2Computer> {
 
     /**
      * Number of minutes of idleness before an instance should be terminated. A value of zero indicates that the
-     * instance should never be automatically terminated. Negative values are times in remaining minutes before end of
-     * billing period.
+     * instance should be automatically terminated after a single build. Negative values are times in remaining
+     * minutes before end of billing period.
      */
     public final int idleTerminationMinutes;
 
@@ -93,7 +93,7 @@ public class EC2RetentionStrategy extends RetentionStrategy<EC2Computer> {
         /*
         * If we've been told never to terminate, or node is null(deleted), no checks to perform
         */
-        if (idleTerminationMinutes == 0 || computer.getNode() == null) {
+        if (computer.getNode() == null) {
             return 1;
         }
 
@@ -114,7 +114,12 @@ public class EC2RetentionStrategy extends RetentionStrategy<EC2Computer> {
                 return 1;
             }
             final long idleMilliseconds = System.currentTimeMillis() - computer.getIdleStartMilliseconds();
-            if (idleTerminationMinutes > 0) {
+            if (idleTerminationMinutes == 0) {
+                LOGGER.info("Terminating " + computer.getName() + " after one build on it");
+                if (computer.getBuilds().size() > 0 ) {
+                    computer.getNode().idleTimeout();
+                }
+            } else if (idleTerminationMinutes > 0) {
                 // TODO: really think about the right strategy here, see
                 // JENKINS-23792
                 if (idleMilliseconds > TimeUnit2.MINUTES.toMillis(idleTerminationMinutes)) {
