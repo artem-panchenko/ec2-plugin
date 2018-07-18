@@ -99,6 +99,7 @@ import com.amazonaws.internal.StaticCredentialsProvider;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2Client;
 import com.amazonaws.services.ec2.model.CreateKeyPairRequest;
+import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.DescribeSpotInstanceRequestsRequest;
 import com.amazonaws.services.ec2.model.Filter;
 import com.amazonaws.services.ec2.model.Instance;
@@ -361,7 +362,24 @@ public abstract class EC2Cloud extends Cloud {
         Set<String> instanceIds = new HashSet<String>();
         String description = template != null ? template.description : null;
 
-        for (Reservation r : connect().describeInstances().getReservations()) {
+        boolean aws_got_response = false;
+        LOGGER.log(Level.FINEST, "Describe instances: sending request");
+
+        DescribeInstancesRequest request = new DescribeInstancesRequest();
+
+        if (template != null) {
+            List<Filter> ec2Filters = new ArrayList<Filter>();
+            List<String> filterValues = new ArrayList<String>();
+            filterValues.add(template.getAmi());
+            ec2Filters.add(new Filter("image-id", filterValues));
+            request.setFilters(ec2Filters);
+        }
+
+        for (Reservation r : connect().describeInstances(request).getReservations()) {
+            if (!aws_got_response) {
+                aws_got_response = true;
+                LOGGER.log(Level.FINEST, "Describe instances: recieved response");
+            }
             for (Instance i : r.getInstances()) {
                 if (isEc2ProvisionedAmiSlave(i.getTags(), description) && (template == null
                         || template.getAmi().equals(i.getImageId()))) {
@@ -500,10 +518,14 @@ public abstract class EC2Cloud extends Cloud {
      * Returns the maximum number of possible slaves that can be created.
      */
     private int getPossibleNewSlavesCount(SlaveTemplate template) throws AmazonClientException {
-        int estimatedTotalSlaves = countCurrentEC2Slaves(null);
-        int estimatedAmiSlaves = countCurrentEC2Slaves(template);
+        int availableTotalSlaves = instanceCap;
+        // it doesn't make any sense to count ALL slaves if max capacity is not set
+        if ( instanceCap < Integer.MAX_VALUE) {
+            int estimatedTotalSlaves = countCurrentEC2Slaves(null);
+            availableTotalSlaves = instanceCap - estimatedTotalSlaves;
+        }
 
-        int availableTotalSlaves = instanceCap - estimatedTotalSlaves;
+        int estimatedAmiSlaves = countCurrentEC2Slaves(template);
         int availableAmiSlaves = template.getInstanceCap() - estimatedAmiSlaves;
         LOGGER.log(Level.FINE, "Available Total Slaves: " + availableTotalSlaves + " Available AMI slaves: " + availableAmiSlaves
                 + " AMI: " + template.getAmi() + " TemplateDesc: " + template.description);
