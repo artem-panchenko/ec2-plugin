@@ -518,10 +518,14 @@ public abstract class EC2Cloud extends Cloud {
      * Returns the maximum number of possible slaves that can be created.
      */
     private int getPossibleNewSlavesCount(SlaveTemplate template) throws AmazonClientException {
-        int estimatedTotalSlaves = countCurrentEC2Slaves(null);
-        int estimatedAmiSlaves = countCurrentEC2Slaves(template);
+        int availableTotalSlaves = instanceCap;
+        // it doesn't make any sense to count ALL slaves if max capacity is not set
+        if ( instanceCap < Integer.MAX_VALUE) {
+            int estimatedTotalSlaves = countCurrentEC2Slaves(null);
+            availableTotalSlaves = instanceCap - estimatedTotalSlaves;
+        }
 
-        int availableTotalSlaves = instanceCap - estimatedTotalSlaves;
+        int estimatedAmiSlaves = countCurrentEC2Slaves(template);
         int availableAmiSlaves = template.getInstanceCap() - estimatedAmiSlaves;
         LOGGER.log(Level.FINE, "Available Total Slaves: " + availableTotalSlaves + " Available AMI slaves: " + availableAmiSlaves
                 + " AMI: " + template.getAmi() + " TemplateDesc: " + template.description);
