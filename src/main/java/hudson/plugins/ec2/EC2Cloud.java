@@ -99,6 +99,7 @@ import com.amazonaws.internal.StaticCredentialsProvider;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2Client;
 import com.amazonaws.services.ec2.model.CreateKeyPairRequest;
+import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.DescribeSpotInstanceRequestsRequest;
 import com.amazonaws.services.ec2.model.Filter;
 import com.amazonaws.services.ec2.model.Instance;
@@ -361,7 +362,24 @@ public abstract class EC2Cloud extends Cloud {
         Set<String> instanceIds = new HashSet<String>();
         String description = template != null ? template.description : null;
 
-        for (Reservation r : connect().describeInstances().getReservations()) {
+        boolean aws_got_response = false;
+        LOGGER.log(Level.FINEST, "Describe instances: sending request");
+
+        DescribeInstancesRequest request = new DescribeInstancesRequest();
+
+        if (template != null) {
+            List<Filter> ec2Filters = new ArrayList<Filter>();
+            List<String> filterValues = new ArrayList<String>();
+            filterValues.add(template.getAmi());
+            ec2Filters.add(new Filter("image-id", filterValues));
+            request.setFilters(ec2Filters);
+        }
+
+        for (Reservation r : connect().describeInstances(request).getReservations()) {
+            if (!aws_got_response) {
+                aws_got_response = true;
+                LOGGER.log(Level.FINEST, "Describe instances: recieved response");
+            }
             for (Instance i : r.getInstances()) {
                 if (isEc2ProvisionedAmiSlave(i.getTags(), description) && (template == null
                         || template.getAmi().equals(i.getImageId()))) {
